@@ -1,14 +1,19 @@
 import { defineStore } from "pinia";
 import { useNuxtApp } from "#app";
 import moment from "moment";
+import Swal from "sweetalert2";
 
 export const useUtangStore = defineStore("utangStore", {
   state: () => ({
     utangs: [],
     utangItems: [],
     paidUtangs: [],
+    confirmPaid: false,
   }),
   actions: {
+    togglePaid() {
+      this.confirmPaid != this.confirmPaid;
+    },
     async fetchUtangs() {
       const { $supabase } = useNuxtApp();
       const { data, error } = await $supabase
@@ -75,23 +80,41 @@ export const useUtangStore = defineStore("utangStore", {
     async markAsPaid(utangId) {
       const { $supabase } = useNuxtApp();
       try {
-        const { error } = await $supabase
-          .from("utangs")
-          .update({
-            status: "paid",
-            date_paid: new Date().toLocaleString("en-US", {
-              timeZone: "Asia/Manila",
-            }),
-          })
-          .eq("id", utangId);
+        const result = await Swal.fire({
+          title: "Are you sure?",
+          text: "Once marked as paid, this action cannot be undone!",
+          icon: "warning",
+          showCancelButton: true,
+          confirmButtonColor: "#3085d6",
+          cancelButtonColor: "#d33",
+          confirmButtonText: "Yes, mark as paid!",
+        });
 
-        if (error) {
-          throw new Error(error.message);
+        if (result.isConfirmed) {
+          const { error } = await $supabase
+            .from("utangs")
+            .update({
+              status: "paid",
+              date_paid: new Date().toLocaleString("en-US", {
+                timeZone: "Asia/Manila",
+              }),
+            })
+            .eq("id", utangId);
+
+          if (error) {
+            throw new Error(error.message);
+          }
+
+          await Swal.fire(
+            "Success!",
+            "The utang has been marked as paid.",
+            "success"
+          );
+          this.fetchUtangs(); 
         }
-
-        this.fetchUtangs();
       } catch (error) {
         console.error("Error marking utang as paid:", error.message);
+        Swal.fire("Error", error.message, "error");
       }
     },
 
@@ -182,7 +205,7 @@ export const useUtangStore = defineStore("utangStore", {
       if (!date) {
         return "--------------------------";
       }
-      return moment(date).format("YYYY-MM-DD hh:mm A"); 
+      return moment(date).format("YYYY-MM-DD hh:mm A");
     },
   },
 });
