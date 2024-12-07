@@ -12,7 +12,6 @@ onMounted(async () => {
     console.error("Error fetching user:", error.message);
   } else {
     user.value = data.user;
-    console.log(user);
   }
 });
 
@@ -52,28 +51,20 @@ const toggleMenu = () => {
         class="absolute top-16 left-0 w-full bg-gray-800 lg:static lg:flex lg:items-center lg:space-x-6 lg:w-auto lg:top-auto lg:bg-transparent"
       >
         <li class="py-2 lg:py-0">
-          <a
-            href="/home"
+          <NuxtLink
+            to="/home"
             class="block px-4 py-2 text-white hover:text-gray-300 lg:inline-block transition"
           >
             Home
-          </a>
+          </NuxtLink>
         </li>
         <li class="py-2 lg:py-0">
-          <a
-            href="/past_utang"
+          <NuxtLink
+            to="/past_utang"
             class="block px-4 py-2 text-white hover:text-gray-300 lg:inline-block transition"
           >
             Past Utangs
-          </a>
-        </li>
-        <li class="py-2 lg:py-0">
-          <a
-            href="/top_utangers"
-            class="block px-4 py-2 text-white hover:text-gray-300 lg:inline-block transition"
-          >
-            Top Utangers
-          </a>
+          </NuxtLink>
         </li>
       </ul>
 

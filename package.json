@@ -12,6 +12,7 @@
   "dependencies": {
     "@pinia/nuxt": "^0.9.0",
     "@supabase/supabase-js": "^2.47.2",
+    "moment": "^2.30.1",
     "nuxt": "^3.14.1592",
     "pinia": "^2.3.0",
     "vue": "latest",

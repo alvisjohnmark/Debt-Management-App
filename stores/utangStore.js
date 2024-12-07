@@ -1,10 +1,12 @@
 import { defineStore } from "pinia";
 import { useNuxtApp } from "#app";
+import moment from "moment";
 
 export const useUtangStore = defineStore("utangStore", {
   state: () => ({
     utangs: [],
     utangItems: [],
+    paidUtangs: [],
   }),
   actions: {
     async fetchUtangs() {
@@ -20,10 +22,22 @@ export const useUtangStore = defineStore("utangStore", {
         this.utangs = data;
       }
     },
+    async fetchPaidUtangs() {
+      const { $supabase } = useNuxtApp();
+      const { data, error } = await $supabase
+        .from("utangs")
+        .select("*, utang_items(*)")
+        .eq("status", "paid");
+
+      if (error) {
+        console.error("Error fetching paid utangs:", error.message);
+      } else {
+        this.paidUtangs = data;
+      }
+    },
 
     async addUtang(newUtang, items) {
       const { $supabase } = useNuxtApp();
-
 
       const totalAmount = items.reduce((sum, item) => sum + item.amount, 0);
 
@@ -31,8 +45,8 @@ export const useUtangStore = defineStore("utangStore", {
         .from("utangs")
         .insert({
           name: newUtang.name,
-          status: "unpaid", 
-          total_amount: totalAmount, 
+          status: "unpaid",
+          total_amount: totalAmount,
         })
         .select()
         .single();
@@ -63,7 +77,12 @@ export const useUtangStore = defineStore("utangStore", {
       try {
         const { error } = await $supabase
           .from("utangs")
-          .update({ status: "paid" })
+          .update({
+            status: "paid",
+            date_paid: new Date().toLocaleString("en-US", {
+              timeZone: "Asia/Manila",
+            }),
+          })
           .eq("id", utangId);
 
         if (error) {
@@ -75,10 +94,11 @@ export const useUtangStore = defineStore("utangStore", {
         console.error("Error marking utang as paid:", error.message);
       }
     },
+
     async updateItems(utangItemId, updatedItem) {
       const { $supabase } = useNuxtApp();
       try {
-        const { error } = await $supabase
+        const { error: updateError } = await $supabase
           .from("utang_items")
           .update({
             item_name: updatedItem.item_name,
@@ -86,16 +106,58 @@ export const useUtangStore = defineStore("utangStore", {
             quantity: updatedItem.quantity,
           })
           .eq("id", utangItemId);
-    
-        if (error) {
-          throw new Error(error.message);
+
+        if (updateError) {
+          throw new Error(updateError.message);
+        }
+
+        const { data: utangItem, error: fetchError } = await $supabase
+          .from("utang_items")
+          .select("utang_id")
+          .eq("id", utangItemId)
+          .single();
+
+        if (fetchError) {
+          throw new Error(fetchError.message);
+        }
+
+        const utangId = utangItem.utang_id;
+        const { data: items, error: itemsError } = await $supabase
+          .from("utang_items")
+          .select("amount, quantity")
+          .eq("utang_id", utangId);
+
+        if (itemsError) {
+          throw new Error(itemsError.message);
+        }
+
+        const totalAmount = items.reduce(
+          (sum, item) => sum + item.amount * item.quantity,
+          0
+        );
+
+        const { error: totalError } = await $supabase
+          .from("utangs")
+          .update({
+            total_amount: totalAmount,
+            last_time_utanged: new Date().toLocaleString("en-US", {
+              timeZone: "Asia/Manila",
+            }),
+          })
+          .eq("id", utangId);
+
+        if (totalError) {
+          throw new Error(totalError.message);
         }
       } catch (error) {
-        console.error("Error updating utang item:", error.message);
-        throw error; 
+        console.error(
+          "Error updating utang item and total amount:",
+          error.message
+        );
+        throw error;
       }
     },
-    
+
     async addItemToUtang(utangId, newItem) {
       const { $supabase } = useNuxtApp();
       try {
@@ -110,12 +172,17 @@ export const useUtangStore = defineStore("utangStore", {
           throw new Error(error.message);
         }
 
-        // Refresh utangs to include the new item
         this.fetchUtangs();
       } catch (error) {
         console.error("Error adding new utang item:", error.message);
         throw error;
       }
+    },
+    formatDate(date) {
+      if (!date) {
+        return "--------------------------";
+      }
+      return moment(date).format("YYYY-MM-DD hh:mm A"); 
     },
   },
 });

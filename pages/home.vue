@@ -92,14 +92,16 @@ const addNewItemToUtang = async () => {
     currentItem.value.quantity > 0
   ) {
     try {
-      await utangStore.addItemToUtang(selectedUtang.value.id, currentItem.value);
+      await utangStore.addItemToUtang(
+        selectedUtang.value.id,
+        currentItem.value
+      );
       currentItem.value = { item_name: "", amount: "", quantity: "" };
     } catch (error) {
       console.error("Error adding new utang item:", error.message);
     }
   }
 };
-
 </script>
 
 <template>
@@ -113,13 +115,19 @@ const addNewItemToUtang = async () => {
       </button>
     </div>
 
-    <h1 class="text-2xl font-bold mb-4">Utanger List</h1>
-    <table class="table-auto w-full border-collapse border border-gray-300">
+    <h1 class="text-2xl font-bold mb-4">Utang List</h1>
+    <div v-if="utangStore.utangs.length === 0">
+      <p>No utangs...</p>
+    </div>
+    <table v-else class="table-auto w-full border-collapse border border-gray-300">
       <thead>
         <tr class="bg-gray-100">
           <th class="border border-gray-300 px-4 py-2 text-left">Name</th>
           <th class="border border-gray-300 px-4 py-2 text-left">
-            Date Last Utanged
+            Date First Time Utanged
+          </th>
+          <th class="border border-gray-300 px-4 py-2 text-left">
+            Date Last Time Utanged
           </th>
           <th class="border border-gray-300 px-4 py-2 text-right">
             Total Amount
@@ -127,43 +135,47 @@ const addNewItemToUtang = async () => {
           <th class="border border-gray-300 px-4 py-2 text-center">Actions</th>
         </tr>
       </thead>
+
       <tbody>
         <tr v-for="utang in utangStore.utangs" :key="utang.id">
           <td class="border border-gray-300 px-4 py-2">{{ utang.name }}</td>
           <td class="border border-gray-300 px-4 py-2">
-            {{ new Date(utang.created_at).toLocaleDateString() }}
+            {{ utangStore.formatDate(utang.created_at) }}
+          </td>
+          <td class="border border-gray-300 px-4 py-2">
+            {{ utangStore.formatDate(utang.last_time_utanged)}}
           </td>
           <td class="border border-gray-300 px-4 py-2 text-right">
             {{ computeTotalAmount(utang.utang_items) }}
           </td>
           <td class="border border-gray-300 px-4 py-2 text-center">
-            <button
-              @click="openItemModal(utang)"
-              class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 mr-2"
-            >
-              View Utangs
-            </button>
-            <button
-              @click="markAsPaid(utang.id)"
-              class="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600"
-            >
-              Paid
-            </button>
+            <div class="flex flex-wrap justify-center gap-2">
+              <button
+                @click="openItemModal(utang)"
+                class="bg-blue-500 text-white px-3 py-1 rounded-md hover:bg-blue-600 w-full sm:w-auto"
+              >
+                View Utangs
+              </button>
+              <button
+                @click="markAsPaid(utang.id)"
+                class="bg-green-500 text-white px-3 py-1 rounded-md hover:bg-green-600 w-full sm:w-auto"
+              >
+                Paid
+              </button>
+            </div>
           </td>
         </tr>
       </tbody>
     </table>
-
+    <!-- Add Utang Modal -->
     <div
       v-if="showModal"
-      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
     >
-      <div class="bg-white rounded-lg p-6 w-11/12 md:w-1/2">
+      <div class="bg-white rounded-lg p-6 w-full max-w-md md:max-w-lg">
         <h2 class="text-lg font-bold mb-4">Add New Utang</h2>
         <div class="mb-4">
-          <label for="utang-name" class="block font-medium mb-2"
-            >Name of Utanger</label
-          >
+          <label for="utang-name" class="block font-medium mb-2">Name</label>
           <input
             id="utang-name"
             type="text"
@@ -171,15 +183,15 @@ const addNewItemToUtang = async () => {
             class="w-full border border-gray-300 rounded-lg px-3 py-2"
           />
         </div>
-
+        <!-- Add Items -->
         <div class="mb-4">
-          <h3 class="font-bold mb-2">Add Utang Items</h3>
-          <div class="flex items-center gap-2">
+          <h3 class="font-bold mb-2">Items</h3>
+          <div class="flex flex-wrap gap-2">
             <input
               type="text"
               placeholder="Item Name"
               v-model="currentItem.item_name"
-              class="flex-1 border border-gray-300 rounded-lg px-3 py-2"
+              class="flex-grow border border-gray-300 rounded-lg px-3 py-2"
             />
             <input
               type="number"
@@ -201,13 +213,12 @@ const addNewItemToUtang = async () => {
             </button>
           </div>
         </div>
-
         <!-- Item List -->
-        <ul class="mb-4">
+        <ul>
           <li
             v-for="(item, index) in utangItems"
             :key="index"
-            class="flex justify-between items-center border-b py-2"
+            class="flex justify-between py-2 border-b"
           >
             <span
               >{{ item.item_name }} ({{ item.quantity }}x
@@ -216,8 +227,7 @@ const addNewItemToUtang = async () => {
           </li>
         </ul>
 
-        <!-- Actions -->
-        <div class="flex justify-end gap-2">
+        <div class="flex justify-end mt-4 gap-2">
           <button
             @click="resetForm"
             class="bg-gray-300 px-4 py-2 rounded-md hover:bg-gray-400"
@@ -234,63 +244,64 @@ const addNewItemToUtang = async () => {
       </div>
     </div>
 
-    <!-- Edit Utang Items Modal -->
     <div
       v-if="showItemModal"
-      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
     >
-      <div class="bg-white rounded-lg p-6 w-11/12 md:w-1/2">
+      <div class="bg-white rounded-lg p-6 w-full max-w-lg">
         <h2 class="text-lg font-bold mb-4">
           Edit Utang Items for {{ selectedUtang?.name }}
         </h2>
-
-        <!-- Table for Editing Existing Items -->
-        <table
-          class="table-auto w-full border-collapse border border-gray-300 mb-4"
-        >
-          <thead>
-            <tr class="bg-gray-100">
-              <th class="border border-gray-300 px-4 py-2">Item Name</th>
-              <th class="border border-gray-300 px-4 py-2">Amount</th>
-              <th class="border border-gray-300 px-4 py-2">Quantity</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(item, index) in selectedUtang.utang_items" :key="index">
-              <td class="border border-gray-300 px-4 py-2">
-                <input
-                  v-model="item.item_name"
-                  type="text"
-                  class="w-full border border-gray-300 rounded px-2 py-1"
-                />
-              </td>
-              <td class="border border-gray-300 px-4 py-2">
-                <input
-                  v-model="item.amount"
-                  type="number"
-                  class="w-full border border-gray-300 rounded px-2 py-1"
-                />
-              </td>
-              <td class="border border-gray-300 px-4 py-2">
-                <input
-                  v-model="item.quantity"
-                  type="number"
-                  class="w-full border border-gray-300 rounded px-2 py-1"
-                />
-              </td>
-            </tr>
-          </tbody>
-        </table>
-
-        <!-- Section for Adding New Items -->
+        <div class="overflow-x-auto">
+          <table
+            class="table-auto w-full border-collapse border border-gray-300 mb-4"
+          >
+            <thead>
+              <tr class="bg-gray-100">
+                <th class="border border-gray-300 px-4 py-2">Item Name</th>
+                <th class="border border-gray-300 px-4 py-2">Amount</th>
+                <th class="border border-gray-300 px-4 py-2">Quantity</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="(item, index) in selectedUtang.utang_items"
+                :key="index"
+              >
+                <td class="border border-gray-300 px-4 py-2">
+                  <input
+                    v-model="item.item_name"
+                    type="text"
+                    class="w-full border border-gray-300 rounded px-2 py-1"
+                  />
+                </td>
+                <td class="border border-gray-300 px-4 py-2">
+                  <input
+                    v-model="item.amount"
+                    type="number"
+                    class="w-full border border-gray-300 rounded px-2 py-1"
+                  />
+                </td>
+                <td class="border border-gray-300 px-4 py-2">
+                  <input
+                    v-model="item.quantity"
+                    type="number"
+                    class="w-full border border-gray-300 rounded px-2 py-1"
+                  />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <!-- Add New Items -->
         <div class="mb-4">
           <h3 class="font-bold mb-2">Add New Item</h3>
-          <div class="flex items-center gap-2">
+          <div class="flex flex-wrap gap-2">
             <input
               type="text"
               placeholder="Item Name"
               v-model="currentItem.item_name"
-              class="flex-1 border border-gray-300 rounded-lg px-3 py-2"
+              class="flex-grow border border-gray-300 rounded-lg px-3 py-2"
             />
             <input
               type="number"
@@ -308,12 +319,11 @@ const addNewItemToUtang = async () => {
               @click="addNewItemToUtang"
               class="bg-green-500 text-white px-3 py-2 rounded-md hover:bg-green-600"
             >
-              Add Item
+              Add
             </button>
           </div>
         </div>
-
-        <!-- Action Buttons -->
+        <!-- Actions -->
         <div class="flex justify-end gap-2">
           <button
             @click="showItemModal = false"
